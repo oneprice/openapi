@@ -15,7 +15,7 @@ const swaggerDefinition = {
         version: '1.0.0',
         description: 'Open API server API specification',
     },
-    host: `${config['server']}:${config['port']}`,
+    host: `${config['server']}`,
     basePath: '/',
 };
 
@@ -34,14 +34,11 @@ const swaggerSpec = swaggerJSDoc(options);
 app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
 app.use(bodyParser.json({limit: '50mb'}));
 
-// Response echo to 'GET /' request for healthy check
-app.get('/', (req, res) => {
-    res.send('RobinCloud Open API');
-});
-
 // Routings
+app.use('/', require('./routes/basic'));
 app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/items'));
+app.use('/', require('./routes/tasks'));
 
 // serve swagger
 app.get('/swagger.json', function(req, res) {
@@ -52,9 +49,24 @@ app.get('/swagger.json', function(req, res) {
 // Swagger-ui routes
 app.use('/swagger-ui', express.static(path.join(__dirname, 'swagger-ui')));
 
+// favicon image.
+app.get('/favicon.ico', function(req, res) {
+    res.setHeader('Content-Type', 'image/x-icon');
+    res.sendFile(path.join(__dirname, 'favicon.ico'));
+});
 
-// Launching application
-const listener = app.listen(config['port'], () => {
-    console.log(`Starting application listening on port ${listener.address().port} ...`);
+
+// Launching application after models are initialized
+Promise.all([
+	require('./models/item').initialize(),
+	require('./models/mall').initialize()
+])
+.then(() => {
+	const listener = app.listen(config['port'], () => {
+		console.log(`Starting application listening on port ${listener.address().port} ...`);
+	})
+})
+.catch((err) => {
+	console.error(`Failed to initialize DynamoDB models: ${err.message}`);
 });
 

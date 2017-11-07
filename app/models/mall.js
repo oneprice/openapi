@@ -1,25 +1,25 @@
 const DB = require('../database');
-const AbstractModel = require('./AbstractModel');
+const AbstractModel = require('./abstract-model');
 
 
 class Mall extends AbstractModel {
-    constructor(id, name) {
+    constructor(data) {
         super();
-        this._object = {
-            id,
-            name
-        };
+        this._object = data;
     }
 
     save() {
         const params = {
             TableName: Mall.tableName,
+            // Key: {
+            //     id: this.get('id')
+            // },
             Item: this._object
         };
 
+        // return DB.docClient.update(params).promise()
         return DB.docClient.put(params).promise()
             .then(() => this);
-
     }
 
     static initialize() {
@@ -69,9 +69,7 @@ class Mall extends AbstractModel {
         return DB.docClient.get(params).promise()
             .then((data) => {
                 if (!data['Item']) return null;
-
-                const {id, name} = data['Item'];
-                return new Mall(id, name);
+                return new Mall(data['Item']);
             });
     }
 
@@ -81,7 +79,7 @@ class Mall extends AbstractModel {
                 if (item) {
                     throw new Error(`Given id (${item.get('id')}) already exists.`);
                 }
-                return new Mall(data.id, data.name).save();
+                return new Mall(data).save();
             });
     }
 
@@ -139,4 +137,3 @@ class Mall extends AbstractModel {
 
 
 module.exports = Mall;
-Mall.test().catch((err) => {});

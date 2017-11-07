@@ -1,84 +1,66 @@
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const Config = require('../config');
-const User = require('../models/user');
+const CustomError = require('./custom-error');
 
 
 class AuthService {
-	static signup(email, passphrase) {
-		return User.findByEmail(email)
-		.then((user) => {
-			if (user) {
-				throw new Error(`Email address (${email}) is already exist.`);
-			}
+	static issue(email) {
+		// Generate and respond the token if sign in succeeded.
+		const payload = {email};
+		const secret = Config['jwtSecret'];
+		const options = {
+			expiresIn: AuthService._getMaxAge(),    // Set token expiration
+			issuer: AuthService._getIssuer()        // Set token issuer
+		};
 
-			const secret = Config['jwt-secret'];
-			const encrypted_passphrase =
-				crypto.createHmac('sha1', secret)
-				.update(passphrase)
-				.digest('base64');
-			return User.create(email, encrypted_passphrase);
-		});
-	}
-
-	static login(email, passphrase) {
-		return User.findByEmail(email)
-		.then((user) => {
-			if (!user) {
-				throw new Error(`A user with email address (${email}) does not exist.`);
-			}
-			user = user.toObject();
-
-			const secret = Config['jwt-secret'];
-			const encrypted_passphrase =
-				crypto.createHmac('sha1', secret)
-				.update(passphrase)
-				.digest('base64');
-			if (user.passphrase !== encrypted_passphrase) {
-				throw new Error(`Passphrase is wrong.`);
-			}
-
-			// Generate and respond the token if sign in succeeded.
-			const payload = {
-				email: user.email,
-				admin: user.admin
-			};
-			const options = {
-				expiresIn: '1d',
-				issuer: 'thecommerce.co.kr'
-			};
-			return new Promise((resolve, reject) => {
-				jwt.sign(payload, secret, options, (err, token) => {
-					if (err) reject(err);
-					else resolve(token);
-				});
+		return new Promise((resolve, reject) => {
+			jwt.sign(payload, secret, options, (err, token) => {
+				if (err) {
+					reject(new CustomError.Unauthorized(err.message, err.name));
+				} else {
+					resolve(token);
+				}
 			});
 		});
 	}
 
 	static verify(token) {
-		if (!token) {
-			throw new Error('Token is not specified. Not logged in.');
-		}
-
 		return new Promise((resolve, reject) => {
-			const secret = Config['jwt-secret'];
-			jwt.verify(token, secret, (err, payload) => {
-				if (err) reject(err);
-				else resolve(payload);
+			if (!token) {
+				return reject(new CustomError.InvalidArgument('empty token'));
+			}
+			const secret = Config['jwtSecret'];
+			const options = {
+				issuer: AuthService._getIssuer(),   // Verify token issuer
+				maxAge: AuthService._getMaxAge()    // Verify token expiration
+			};
+
+			jwt.verify(token, secret, options, (err, payload) => {
+				if (err) {
+					reject(new CustomError.Unauthorized(err.message, err.name));
+				} else {
+					resolve(payload);
+				}
 			});
 		});
+	}
+
+
+	// Private methods
+	static _getMaxAge() {
+		return '30d';   // Token expires in 30 days
+	}
+
+	static _getIssuer() {
+		return 'thecommerce.co.kr';
 	}
 
 
 	// FOR TEST
 	static test() {
 		const email = 'mankiplayer@hotmail.com';
-		const pass = 'aksrldi09a';
 
-		return User.initialize()
-		.then(() => AuthService.signup(email, pass))
-		.then(() => AuthService.login(email, pass))
+		AuthService.issue(email)
 		.then((token) => {
 			console.log('* Issued token:');
 			console.log(token);
@@ -87,10 +69,6 @@ class AuthService {
 		.then((payload) => {
 			console.log('* Restored payload:');
 			console.log(payload);
-
-			return User.delete(email);
-		})
-		.then(() => {
 			console.log('PASSED.');
 		})
 		.catch((err) => {
@@ -101,4 +79,3 @@ class AuthService {
 
 
 module.exports = AuthService;
-

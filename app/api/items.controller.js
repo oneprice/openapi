@@ -7,24 +7,7 @@ const saveItem = (req, res) => {
     ItemService.saveItem(data)
         .then((item) => {
             res.json({
-                message: 'An new item is saved successfully.',
-                item
-            });
-        })
-        .catch((err) => {
-            res.status(500).json({
-                message: err.message
-            });
-        });
-};
-
-const saveMall = (req, res) => {
-    const data = req.body;
-
-    ItemService.saveMall(data)
-        .then((item) => {
-            res.json({
-                message: 'An new item is saved successfully.',
+                message: 'items and malls are saved successfully.',
                 item
             });
         })
@@ -68,7 +51,6 @@ const test = (req, res) => {
 
 module.exports = {
     saveItem,
-    saveMall,
     query,
     test
 };
